@@ -256,7 +256,12 @@ static void es8388_set_volume(float volume_airplay_db) {
 
   // Map AirPlay -30..0 dB below the configured codec ceiling, same shape as
   // the ES8311 driver's mapping.
-  float db = (float)CONFIG_ES8388_MAX_VOLUME + volume_airplay_db;
+  // 2:1 stretch matches dac_es8311's mapping: AirPlay's -30..0dB range needs
+  // to reach the codec's real mute floor, not just fall MAX_VOLUME-30 short
+  // of it. Without this, AirPlay mute doesn't actually silence the output —
+  // and DAC_CONTROLS_VOLUME disables the software-attenuation fallback that
+  // would otherwise cover for it.
+  float db = (float)CONFIG_ES8388_MAX_VOLUME + (volume_airplay_db * 2.0f);
   if (db < -96.0f) {
     db = -96.0f;
   }
@@ -274,7 +279,8 @@ static void es8388_set_volume(float volume_airplay_db) {
   xSemaphoreGive(s_dac_mutex);
 }
 
-static void es8388_on_i2s_started(void) {
+static void es8388_on_i2s_started(uint32_t sample_rate_hz) {
+  (void)sample_rate_hz;
   es8388_set_power_mode(DAC_POWER_ON);
 }
 
